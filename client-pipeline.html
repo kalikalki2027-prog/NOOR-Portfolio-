@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Client Pipeline — Freelance Build Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1B2A33;
+    --signal: #E2963A;
+    --workshop-green: #3F7A5C;
+    --brick: #B0433D;
+    --paper: #F2F4F1;
+    --line: #D7DBD6;
+    --muted: #9AA09B;
+    --subtle: #6B716C;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --display: 'Space Grotesk', ui-sans-serif, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background-color: var(--paper);
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--ink);
+    min-height: 100vh;
+    padding-bottom: 7rem;
+  }
+
+  button {
+    font: inherit;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: inherit;
+  }
+
+  input, select, textarea {
+    font: inherit;
+  }
+
+  /* ---------- Header ---------- */
+
+  .header {
+    padding: 2rem 1.25rem 1.5rem;
+    border-radius: 0 0 1.5rem 1.5rem;
+    background-color: var(--ink);
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: #8CA8BE;
+    text-transform: uppercase;
+  }
+
+  .header h1 {
+    margin: 0.25rem 0 0;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 26px;
+    color: #F5F6F3;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    margin-top: 1.25rem;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  .stat {
+    padding: 0.75rem;
+    border-left: 1px solid rgba(255,255,255,0.12);
+  }
+
+  .stat:first-child { border-left: none; }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: #7C8B95;
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 17px;
+    color: #F5F6F3;
+    margin-top: 0.25rem;
+  }
+
+  /* ---------- Stage tabs ---------- */
+
+  .tabs {
+    padding: 0 1.25rem;
+    margin-top: 1.25rem;
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .tab {
+    flex-shrink: 0;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 2px solid transparent;
+  }
+
+  .tab.active { border-bottom-color: var(--tab-color, var(--ink)); }
+
+  .tab-code {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .tab.active .tab-code { color: var(--tab-color, var(--ink)); }
+
+  .tab-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-top: 0.125rem;
+    white-space: nowrap;
+  }
+
+  .tab.active .tab-label { color: var(--ink); }
+
+  /* ---------- Client list ---------- */
+
+  .list {
+    padding: 0 1.25rem;
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .card {
+    background-color: #fff;
+    border-radius: 1rem;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    display: flex;
+  }
+
+  .card-stripe {
+    width: 6px;
+    flex-shrink: 0;
+  }
+
+  .card-body {
+    flex: 1;
+    padding: 1rem;
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .card-title {
+    font-family: var(--display);
+    font-weight: 600;
+    color: var(--ink);
+    font-size: 16px;
+    margin: 0;
+  }
+
+  .card-project {
+    font-size: 14px;
+    color: var(--subtle);
+    margin: 0.125rem 0 0;
+  }
+
+  .card-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-family: var(--mono);
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .card-value {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .card-contact {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 12px;
+    color: var(--subtle);
+  }
+
+  .card-age {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .card-notes {
+    margin: 0.5rem 0 0;
+    font-size: 14px;
+    color: var(--subtle);
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .icon-btn {
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    background-color: var(--paper);
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .icon-btn:disabled {
+    opacity: 0.25;
+    cursor: default;
+  }
+
+  .icon-btn.danger {
+    background-color: #F7E9E8;
+    color: var(--brick);
+  }
+
+  .move-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    background-color: var(--ink);
+  }
+
+  .retainer-note {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--workshop-green);
+  }
+
+  /* ---------- Floating add button ---------- */
+
+  .fab {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    border-radius: 999px;
+    padding: 1rem;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.15);
+    color: #fff;
+    background-color: var(--signal);
+    display: inline-flex;
+    z-index: 20;
+  }
+
+  /* ---------- Clear-all footer ---------- */
+
+  .clear-footer {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: 12px;
+  }
+
+  .clear-link {
+    text-decoration: underline;
+    color: var(--muted);
+  }
+
+  .confirm-text { color: var(--subtle); }
+
+  .confirm-yes {
+    font-weight: 500;
+    text-decoration: underline;
+    color: var(--brick);
+    margin-right: 0.5rem;
+  }
+
+  .confirm-cancel {
+    text-decoration: underline;
+    color: var(--muted);
+  }
+
+  /* ---------- Save error toast ---------- */
+
+  .save-error {
+    position: fixed;
+    bottom: 6rem;
+    left: 1.25rem;
+    right: 1.25rem;
+    font-size: 14px;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: #F7E9E8;
+    color: var(--brick);
+    z-index: 30;
+  }
+
+  /* ---------- Modal ---------- */
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 50;
+  }
+
+  .modal {
+    background-color: #fff;
+    border-radius: 1.5rem 1.5rem 0 0;
+    width: 100%;
+    max-width: 28rem;
+    padding: 1.5rem;
+    overflow-y: auto;
+    max-height: 85vh;
+  }
+
+  @media (min-width: 640px) {
+    .modal-overlay { align-items: center; }
+    .modal { border-radius: 1.5rem; }
+  }
+
+  .modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .modal-head h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    color: var(--ink);
+    font-size: 18px;
+    margin: 0;
+  }
+
+  .modal-close { color: var(--muted); display: inline-flex; }
+
+  .field { margin-bottom: 0.75rem; }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--subtle);
+    margin-bottom: 0.25rem;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    background-color: #fff;
+  }
+
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    outline: 2px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  .field textarea { resize: vertical; }
+
+  .field.mono input { font-family: var(--mono); }
+
+  .form-error {
+    font-size: 12px;
+    color: var(--brick);
+    margin: 0.25rem 0 0;
+  }
+
+  .submit-btn {
+    width: 100%;
+    margin-top: 1.25rem;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    font-weight: 500;
+    color: #fff;
+    background-color: var(--ink);
+  }
+
+  .loading-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--paper);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="loadingScreen" class="loading-screen">loading pipeline…</div>
+
+<div id="app" class="hidden">
+
+  <div class="header">
+    <div class="eyebrow">Freelance Build Tracker</div>
+    <h1>Client Pipeline</h1>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Active</div>
+        <div class="stat-value" id="statActive">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Value</div>
+        <div class="stat-value" id="statValue">₹0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Retainers</div>
+        <div class="stat-value" id="statRetainers">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="list" id="list"></div>
+
+  <button class="fab" id="openAddBtn" aria-label="Add client">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+  </button>
+
+  <div class="clear-footer" id="clearFooter"></div>
+
+  <div id="saveError" class="save-error hidden">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+    Couldn't save. Check your connection and try again.
+  </div>
+
+  <div id="modalOverlay" class="modal-overlay hidden">
+    <div class="modal" id="modalCard">
+      <div class="modal-head">
+        <h2 id="modalTitle">Add Client</h2>
+        <button class="modal-close" id="modalCloseBtn" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div class="field">
+        <label for="fName">Client Name</label>
+        <input id="fName" type="text" placeholder="e.g. Dr. Devyani" />
+      </div>
+      <div class="field">
+        <label for="fProject">Project</label>
+        <input id="fProject" type="text" placeholder="e.g. Clinic website" />
+      </div>
+      <div class="field mono">
+        <label for="fValue">Value (₹)</label>
+        <input id="fValue" type="number" placeholder="15000" />
+      </div>
+      <div class="field">
+        <label for="fContact">Contact</label>
+        <input id="fContact" type="text" placeholder="Phone or email" />
+      </div>
+      <div class="field">
+        <label for="fStage">Stage</label>
+        <select id="fStage"></select>
+      </div>
+      <div class="field">
+        <label for="fNotes">Notes</label>
+        <textarea id="fNotes" rows="3" placeholder="Optional notes"></textarea>
+      </div>
+
+      <p class="form-error hidden" id="formError"></p>
+
+      <button class="submit-btn" id="submitFormBtn">Add Client</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- Constants (mirrors the React version) ---------- */
+
+  var INK = '#1B2A33';
+  var WORKSHOP_GREEN = '#3F7A5C';
+  var BRICK = '#B0433D';
+  var PAPER = '#F2F4F1';
+  var MUTED = '#9AA09B';
+
+  var STAGES = [
+    { key: 'Lead',              code: '01', bg: '#ECEDEB', fg: '#5B665F', border: '#C9CDC8' },
+    { key: 'Proposal Sent',     code: '02', bg: '#E6EDF3', fg: '#2E5C8A', border: '#B9CEDE' },
+    { key: 'Contract Signed',   code: '03', bg: '#DCE7F0', fg: '#2A5580', border: '#A9C4D9' },
+    { key: 'In Design',         code: '04', bg: '#CFDEEB', fg: '#254A70', border: '#98B9D2' },
+    { key: 'In Development',    code: '05', bg: '#C0D4E5', fg: '#204163', border: '#87ADCA' },
+    { key: 'Client Review',     code: '06', bg: '#AFC8DE', fg: '#1B3A5A', border: '#77A0C0' },
+    { key: 'Launched',          code: '07', bg: '#DBEAE1', fg: '#3F7A5C', border: '#A8CDB8' },
+    { key: 'Maintenance',       code: '08', bg: '#C9E1D3', fg: '#336249', border: '#8FBE9F' }
+  ];
+
+  var STAGE_NAMES = STAGES.map(function (s) { return s.key; });
+  function stageMeta(key) {
+    for (var i = 0; i < STAGES.length; i++) if (STAGES[i].key === key) return STAGES[i];
+    return STAGES[0];
+  }
+  function emptyForm() {
+    return { name: '', project: '', value: '', contact: '', notes: '', stage: 'Lead' };
+  }
+
+  var ICONS = {
+    arrowLeft: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>',
+    arrowRight: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>',
+    pencil: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>',
+    trash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+    phone: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>',
+    check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+  };
+
+  /* ---------- State ---------- */
+
+  var clients = [];
+  var loading = true;
+  var activeStage = 'All';
+  var showModal = false;
+  var editingId = null;
+  var form = emptyForm();
+  var formError = '';
+  var confirmReset = false;
+  var saveError = false;
+
+  /* ---------- Persistence (localStorage stand-in for window.storage) ---------- */
+
+  var STORAGE_KEY = 'client_pipeline_clients';
+
+  function loadClients() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) clients = JSON.parse(raw);
+    } catch (e) {
+      /* no data saved yet */
+    } finally {
+      loading = false;
+      render();
+    }
+  }
+
+  function persist(updated) {
+    clients = updated;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      saveError = false;
+    } catch (e) {
+      saveError = true;
+    }
+    render();
+  }
+
+  /* ---------- Actions ---------- */
+
+  function openAdd() {
+    editingId = null;
+    form = emptyForm();
+    formError = '';
+    showModal = true;
+    render();
+  }
+
+  function openEdit(client) {
+    editingId = client.id;
+    form = {
+      name: client.name,
+      project: client.project,
+      value: client.value,
+      contact: client.contact,
+      notes: client.notes,
+      stage: client.stage
+    };
+    formError = '';
+    showModal = true;
+    render();
+  }
+
+  function closeModal() {
+    showModal = false;
+    render();
+  }
+
+  function submitForm() {
+    if (!form.name.trim() || !form.project.trim()) {
+      formError = 'Client name and project are required.';
+      render();
+      return;
+    }
+    if (editingId) {
+      persist(clients.map(function (c) {
+        return c.id === editingId ? Object.assign({}, c, form) : c;
+      }));
+    } else {
+      var newClient = Object.assign({ id: Date.now().toString(), dateAdded: new Date().toISOString() }, form);
+      persist([newClient].concat(clients));
+    }
+    showModal = false;
+    render();
+  }
+
+  function deleteClient(id) {
+    persist(clients.filter(function (c) { return c.id !== id; }));
+  }
+
+  function moveStage(id, direction) {
+    var client = clients.find(function (c) { return c.id === id; });
+    if (!client) return;
+    var idx = STAGE_NAMES.indexOf(client.stage);
+    var newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= STAGE_NAMES.length) return;
+    persist(clients.map(function (c) {
+      return c.id === id ? Object.assign({}, c, { stage: STAGE_NAMES[newIdx] }) : c;
+    }));
+  }
+
+  function clearAll() {
+    persist([]);
+    confirmReset = false;
+    render();
+  }
+
+  function daysAgo(iso) {
+    if (!iso) return null;
+    return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  }
+
+  /* ---------- Rendering ---------- */
+
+  var loadingScreenEl = document.getElementById('loadingScreen');
+  var appEl = document.getElementById('app');
+  var statActiveEl = document.getElementById('statActive');
+  var statValueEl = document.getElementById('statValue');
+  var statRetainersEl = document.getElementById('statRetainers');
+  var tabsEl = document.getElementById('tabs');
+  var listEl = document.getElementById('list');
+  var clearFooterEl = document.getElementById('clearFooter');
+  var saveErrorEl = document.getElementById('saveError');
+  var modalOverlayEl = document.getElementById('modalOverlay');
+  var modalTitleEl = document.getElementById('modalTitle');
+  var formErrorEl = document.getElementById('formError');
+  var submitBtnEl = document.getElementById('submitFormBtn');
+
+  var fName = document.getElementById('fName');
+  var fProject = document.getElementById('fProject');
+  var fValue = document.getElementById('fValue');
+  var fContact = document.getElementById('fContact');
+  var fStage = document.getElementById('fStage');
+  var fNotes = document.getElementById('fNotes');
+
+  function inrFormat(n) {
+    return Number(n).toLocaleString('en-IN');
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  function renderStats() {
+    var activeValue = clients
+      .filter(function (c) { return c.stage !== 'Launched' && c.stage !== 'Maintenance'; })
+      .reduce(function (sum, c) { return sum + (parseFloat(c.value) || 0); }, 0);
+    var retainerCount = clients.filter(function (c) { return c.stage === 'Maintenance'; }).length;
+    var activeCount = clients.filter(function (c) { return c.stage !== 'Launched'; }).length;
+
+    statActiveEl.textContent = activeCount;
+    statValueEl.textContent = '₹' + inrFormat(activeValue);
+    statRetainersEl.textContent = retainerCount;
+  }
+
+  function renderTabs() {
+    var html = '';
+
+    html += '<button class="tab' + (activeStage === 'All' ? ' active' : '') + '" data-stage="All">' +
+      '<div class="tab-code">00</div>' +
+      '<div class="tab-label">All (' + clients.length + ')</div>' +
+      '</button>';
+
+    STAGES.forEach(function (s) {
+      var count = clients.filter(function (c) { return c.stage === s.key; }).length;
+      var active = activeStage === s.key;
+      html += '<button class="tab' + (active ? ' active' : '') + '" data-stage="' + escapeHtml(s.key) + '" style="--tab-color:' + s.fg + '">' +
+        '<div class="tab-code">' + s.code + '</div>' +
+        '<div class="tab-label">' + escapeHtml(s.key) + ' (' + count + ')</div>' +
+        '</button>';
+    });
+
+    tabsEl.innerHTML = html;
+
+    tabsEl.querySelectorAll('.tab').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        activeStage = btn.getAttribute('data-stage');
+        render();
+      });
+    });
+  }
+
+  function renderList() {
+    var filtered = activeStage === 'All' ? clients : clients.filter(function (c) { return c.stage === activeStage; });
+
+    if (filtered.length === 0) {
+      var msg = activeStage === 'All'
+        ? 'Your pipeline is empty. Add your first client to start tracking.'
+        : 'Nothing in ' + escapeHtml(activeStage) + ' right now.';
+      listEl.innerHTML = '<div class="empty-state"><p>' + msg + '</p></div>';
+      return;
+    }
+
+    var html = '';
+
+    filtered.forEach(function (client) {
+      var meta = stageMeta(client.stage);
+      var idx = STAGE_NAMES.indexOf(client.stage);
+      var age = daysAgo(client.dateAdded);
+
+      html += '<div class="card" data-id="' + escapeHtml(client.id) + '">';
+      html += '<div class="card-stripe" style="background-color:' + meta.fg + '"></div>';
+      html += '<div class="card-body">';
+
+      html += '<div class="card-top">';
+      html += '<div><h3 class="card-title">' + escapeHtml(client.name) + '</h3>';
+      html += '<p class="card-project">' + escapeHtml(client.project) + '</p></div>';
+      html += '<span class="card-badge" style="background-color:' + meta.bg + ';color:' + meta.fg + '">' + meta.code + ' · ' + escapeHtml(client.stage) + '</span>';
+      html += '</div>';
+
+      html += '<div class="card-meta">';
+      if (client.value) {
+        html += '<span class="card-value">₹' + inrFormat(parseFloat(client.value)) + '</span>';
+      }
+      if (client.contact) {
+        html += '<span class="card-contact">' + ICONS.phone + ' ' + escapeHtml(client.contact) + '</span>';
+      }
+      if (age !== null) {
+        html += '<span class="card-age">' + (age === 0 ? 'added today' : age + 'd in pipeline') + '</span>';
+      }
+      html += '</div>';
+
+      if (client.notes) {
+        html += '<p class="card-notes">' + escapeHtml(client.notes) + '</p>';
+      }
+
+      html += '<div class="card-actions">';
+      html += '<button class="icon-btn move-back" ' + (idx === 0 ? 'disabled' : '') + ' aria-label="Move back">' + ICONS.arrowLeft + '</button>';
+
+      if (idx < STAGE_NAMES.length - 1) {
+        html += '<button class="move-btn move-forward">Move to ' + escapeHtml(STAGE_NAMES[idx + 1]) + ' ' + ICONS.arrowRight + '</button>';
+      } else {
+        html += '<div class="retainer-note">' + ICONS.check + ' Ongoing retainer</div>';
+      }
+
+      html += '<button class="icon-btn edit-btn" aria-label="Edit">' + ICONS.pencil + '</button>';
+      html += '<button class="icon-btn danger delete-btn" aria-label="Delete">' + ICONS.trash + '</button>';
+      html += '</div>'; // card-actions
+
+      html += '</div>'; // card-body
+      html += '</div>'; // card
+    });
+
+    listEl.innerHTML = html;
+
+    listEl.querySelectorAll('.card').forEach(function (cardEl) {
+      var id = cardEl.getAttribute('data-id');
+
+      var backBtn = cardEl.querySelector('.move-back');
+      if (backBtn) backBtn.addEventListener('click', function () { moveStage(id, -1); });
+
+      var fwdBtn = cardEl.querySelector('.move-forward');
+      if (fwdBtn) fwdBtn.addEventListener('click', function () { moveStage(id, 1); });
+
+      var editBtn = cardEl.querySelector('.edit-btn');
+      if (editBtn) editBtn.addEventListener('click', function () {
+        var client = clients.find(function (c) { return c.id === id; });
+        if (client) openEdit(client);
+      });
+
+      var deleteBtn = cardEl.querySelector('.delete-btn');
+      if (deleteBtn) deleteBtn.addEventListener('click', function () { deleteClient(id); });
+    });
+  }
+
+  function renderClearFooter() {
+    if (!confirmReset) {
+      clearFooterEl.innerHTML = '<button class="clear-link" id="confirmResetBtn">Clear all data</button>';
+      document.getElementById('confirmResetBtn').addEventListener('click', function () {
+        confirmReset = true;
+        render();
+      });
+    } else {
+      clearFooterEl.innerHTML =
+        '<span class="confirm-text">Delete everything? </span>' +
+        '<button class="confirm-yes" id="clearAllBtn">Yes, clear</button>' +
+        '<button class="confirm-cancel" id="cancelResetBtn">Cancel</button>';
+      document.getElementById('clearAllBtn').addEventListener('click', clearAll);
+      document.getElementById('cancelResetBtn').addEventListener('click', function () {
+        confirmReset = false;
+        render();
+      });
+    }
+  }
+
+  function renderSaveError() {
+    saveErrorEl.classList.toggle('hidden', !saveError);
+  }
+
+  function populateStageSelect() {
+    fStage.innerHTML = STAGE_NAMES.map(function (s) {
+      return '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>';
+    }).join('');
+  }
+
+  function renderModal() {
+    modalOverlayEl.classList.toggle('hidden', !showModal);
+    if (!showModal) return;
+
+    modalTitleEl.textContent = editingId ? 'Edit Client' : 'Add Client';
+    submitBtnEl.textContent = editingId ? 'Save Changes' : 'Add Client';
+
+    fName.value = form.name;
+    fProject.value = form.project;
+    fValue.value = form.value;
+    fContact.value = form.contact;
+    fStage.value = form.stage;
+    fNotes.value = form.notes;
+
+    if (formError) {
+      formErrorEl.textContent = formError;
+      formErrorEl.classList.remove('hidden');
+    } else {
+      formErrorEl.classList.add('hidden');
+    }
+  }
+
+  function render() {
+    if (loading) {
+      loadingScreenEl.classList.remove('hidden');
+      appEl.classList.add('hidden');
+      return;
+    }
+    loadingScreenEl.classList.add('hidden');
+    appEl.classList.remove('hidden');
+
+    renderStats();
+    renderTabs();
+    renderList();
+    renderClearFooter();
+    renderSaveError();
+    renderModal();
+  }
+
+  /* ---------- Static wiring ---------- */
+
+  populateStageSelect();
+
+  document.getElementById('openAddBtn').addEventListener('click', openAdd);
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  modalOverlayEl.addEventListener('click', function (e) {
+    if (e.target === modalOverlayEl) closeModal();
+  });
+  document.getElementById('modalCard').addEventListener('click', function (e) {
+    e.stopPropagation();
+  });
+
+  fName.addEventListener('input', function () { form.name = fName.value; });
+  fProject.addEventListener('input', function () { form.project = fProject.value; });
+  fValue.addEventListener('input', function () { form.value = fValue.value; });
+  fContact.addEventListener('input', function () { form.contact = fContact.value; });
+  fStage.addEventListener('change', function () { form.stage = fStage.value; });
+  fNotes.addEventListener('input', function () { form.notes = fNotes.value; });
+
+  submitBtnEl.addEventListener('click', submitForm);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && showModal) closeModal();
+  });
+
+  /* ---------- Init ---------- */
+
+  loadClients();
+})();
+</script>
+
+</body>
+</html>
